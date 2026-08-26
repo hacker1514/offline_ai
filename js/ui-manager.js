@@ -506,7 +506,7 @@ class UIManager {
             await window.aiEngine.unloadActiveModel();
         }
 
-        await window.storageManager.removeModelResources(model.id, model.modelId);
+        const removedCount = await window.storageManager.removeModelResources(model.id, model.modelId);
         await window.dbInstance.delete("downloads", model.id);
         await window.dbInstance.put("models", {
             id: model.id,
@@ -518,7 +518,9 @@ class UIManager {
             runtime: model.runtime
         });
 
-        this.showToast(`${model.name} removed. Storage freed.`, "success");
+        await window.storageManager.syncInstalledModelsFromCache().catch(() => {});
+
+        this.showToast(`${model.name} removed. Chrome storage & model weights cleared (${removedCount} resources purged).`, "success");
 
         this.renderModelStore();
         this.renderInstalledModels();

@@ -46,19 +46,31 @@ class StorageManager {
     async syncInstalledModelsFromCache() {
         await window.dbInstance.init();
         try {
-            const kniCache = await caches.open(this.cacheName);
-            const tfCache = await caches.open(this.tfCacheName);
-
-            const keys1 = await kniCache.keys();
-            const keys2 = await tfCache.keys();
-            const allUrls = [...keys1.map(r => r.url), ...keys2.map(r => r.url)];
+            const allUrls = [];
+            if (typeof caches !== "undefined" && caches.keys) {
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    try {
+                        const cacheObj = await caches.open(cacheName);
+                        const keys = await cacheObj.keys();
+                        for (const r of keys) {
+                            allUrls.push(r.url.toLowerCase());
+                        }
+                    } catch (e) {}
+                }
+            }
 
             let syncedCount = 0;
 
             for (const model of window.MODEL_REGISTRY) {
                 const isActiveInEngine = window.aiEngine && window.aiEngine.activeModel && window.aiEngine.activeModel.id === model.id;
+                
+                const modelIdLower = (model.id || "").toLowerCase();
+                const repositoryLower = (model.modelId || "").toLowerCase();
+                const repoNameLower = repositoryLower.includes("/") ? repositoryLower.split("/").pop() : repositoryLower;
+
                 const hasOnnxWeight = isActiveInEngine || allUrls.some(url =>
-                    (url.includes(model.modelId) || url.includes(model.id) || url.toLowerCase().includes(model.id.toLowerCase())) &&
+                    (url.includes(repositoryLower) || url.includes(modelIdLower) || (repoNameLower && url.includes(repoNameLower))) &&
                     (url.includes(".onnx") || url.includes("model_quantized") || url.includes("model_q4") || url.includes("onnx") || url.includes("resolve"))
                 );
 
@@ -74,6 +86,19 @@ class StorageManager {
                         lastUsedAt: Date.now()
                     });
                     syncedCount++;
+                } else if (!isActiveInEngine) {
+                    const dbRecord = await window.dbInstance.get("models", model.id);
+                    if (dbRecord && dbRecord.status === "INSTALLED") {
+                        await window.dbInstance.put("models", {
+                            id: model.id,
+                            version: model.version,
+                            status: "NOT_INSTALLED",
+                            installedAt: null,
+                            totalSize: 0,
+                            downloadedSize: 0,
+                            runtime: model.runtime
+                        });
+                    }
                 }
             }
 
@@ -132,20 +157,129 @@ class StorageManager {
     }
 
     async removeModelResources(modelId, repository) {
-        const kniCache = await caches.open(this.cacheName);
-        const tfCache = await caches.open(this.tfCacheName);
+        let regModel = null;
+        if (window.MODEL_REGISTRY) {
+            regModel = window.MODEL_REGISTRY.find(m => m.id === modelId || m.modelId === repository || m.id === repository);
+        }
+
+        const targets = new Set();
+        if (modelId) targets.add(modelId.toLowerCase());
+        if (repository) {
+            targets.add(repository.toLowerCase());
+            if (repository.includes("/")) {
+                const parts = repository.split("/");
+                targets.add(parts[parts.length - 1].toLowerCase());
+            }
+        }
+        if (regModel) {
+            if (regModel.id) targets.add(regModel.id.toLowerCase());
+            if (regModel.modelId) {
+                targets.add(regModel.modelId.toLowerCase());
+                if (regModel.modelId.includes("/")) {
+                    targets.add(regModel.modelId.split("/").pop().toLowerCase());
+                }
+            }
+            if (regModel.name) {
+                const cleanedName = regModel.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+                if (cleanedName.length > 3) targets.add(cleanedName);
+            }
+        }
+
+        const searchTerms = Array.from(targets).filter(t => t && t.length > 2);
 
         let deletedCount = 0;
 
-        for (const cacheObj of [kniCache, tfCache]) {
-            const keys = await cacheObj.keys();
-            for (const request of keys) {
-                if (request.url.includes(repository) || request.url.includes(modelId)) {
-                    await cacheObj.delete(request);
-                    deletedCount++;
+        // 1. Chrome Cache Storage (Clear across ALL cache stores)
+        try {
+            if (typeof caches !== "undefined" && caches.keys) {
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    try {
+                        const cacheObj = await caches.open(cacheName);
+                        const keys = await cacheObj.keys();
+                        for (const request of keys) {
+                            const urlLower = request.url.toLowerCase();
+                            const isMatch = searchTerms.some(term => urlLower.includes(term));
+                            if (isMatch) {
+                                await cacheObj.delete(request);
+                                deletedCount++;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`[StorageManager] Error cleaning cache store '${cacheName}':`, e);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("[StorageManager] Error accessing Cache Storage:", e);
+        }
+
+        // 2. Chrome Extension Storage API (chrome.storage.local, chrome.storage.sync, chrome.storage.session)
+        if (typeof chrome !== "undefined" && chrome?.storage) {
+            const storageAreas = ["local", "sync", "session"];
+            for (const area of storageAreas) {
+                if (chrome.storage[area] && typeof chrome.storage[area].get === "function") {
+                    try {
+                        const data = await new Promise((resolve) => {
+                            chrome.storage[area].get(null, (items) => resolve(items || {}));
+                        });
+                        const keysToRemove = [];
+                        for (const [key, value] of Object.entries(data)) {
+                            const keyLower = key.toLowerCase();
+                            const valString = typeof value === "string" ? value.toLowerCase() : JSON.stringify(value).toLowerCase();
+                            if (searchTerms.some(term => keyLower.includes(term) || valString.includes(term))) {
+                                keysToRemove.push(key);
+                            }
+                        }
+                        if (keysToRemove.length > 0) {
+                            await new Promise((resolve) => {
+                                chrome.storage[area].remove(keysToRemove, () => resolve());
+                            });
+                            console.log(`[StorageManager] Removed ${keysToRemove.length} keys from chrome.storage.${area}`);
+                        }
+                    } catch (e) {
+                        console.warn(`[StorageManager] Error cleaning chrome.storage.${area}:`, e);
+                    }
                 }
             }
         }
+
+        // 3. Origin Private File System (OPFS)
+        if (navigator.storage && navigator.storage.getDirectory) {
+            try {
+                const root = await navigator.storage.getDirectory();
+                const removeMatchingOPFS = async (dirHandle) => {
+                    for await (const [name, handle] of dirHandle.entries()) {
+                        const nameLower = name.toLowerCase();
+                        if (searchTerms.some(term => nameLower.includes(term))) {
+                            await dirHandle.removeEntry(name, { recursive: true }).catch(() => {});
+                        } else if (handle.kind === "directory") {
+                            await removeMatchingOPFS(handle).catch(() => {});
+                        }
+                    }
+                };
+                await removeMatchingOPFS(root);
+            } catch (e) {}
+        }
+
+        // 4. LocalStorage & SessionStorage
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    const keyLower = key.toLowerCase();
+                    const valLower = (localStorage.getItem(key) || "").toLowerCase();
+                    if (key !== "offline_ai_gen_settings" && key !== "offline_ai_sidebar_collapsed" && key !== "lwm_app_installed") {
+                        if (searchTerms.some(term => keyLower.includes(term) || valLower.includes(term))) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                }
+            }
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+        } catch (e) {}
+
         return deletedCount;
     }
 
