@@ -282,7 +282,7 @@ class UIManager {
                 `;
             } else if (status === "INTERRUPTED" || status === "ERROR") {
                 actionButtonHtml = `
-                    <button class="btn btn-primary btn-download-model" data-id="${model.id}">Resume Download (${model.sizeFormatted})</button>
+                    <button class="btn btn-primary btn-download-model" data-id="${model.id}">Resume Install (${model.sizeFormatted})</button>
                     <button class="btn btn-danger btn-remove-model" data-id="${model.id}">Clean</button>
                 `;
             } else if (status === "QUEUED") {
@@ -291,7 +291,10 @@ class UIManager {
                 `;
             } else {
                 actionButtonHtml = `
-                    <button class="btn btn-primary btn-download-model" data-id="${model.id}">Download (${model.sizeFormatted})</button>
+                    <button class="btn btn-primary btn-download-model" data-id="${model.id}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        <span>Install (${model.sizeFormatted})</span>
+                    </button>
                 `;
             }
 
@@ -546,7 +549,10 @@ class UIManager {
         if (footer) {
             footer.innerHTML = `
                 <button class="btn btn-outline modal-close btn-close-detail" data-modal="modal-model-detail">Close</button>
-                <button class="btn btn-primary btn-detail-download">Download (${model.sizeFormatted})</button>
+                <button class="btn btn-primary btn-detail-download">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>Install (${model.sizeFormatted})</span>
+                </button>
             `;
             const btnClose = footer.querySelector(".btn-close-detail");
             if (btnClose) {

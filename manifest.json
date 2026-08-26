@@ -1,0 +1,25 @@
+{
+  "name": "LWM - Learn With Me",
+  "short_name": "LWM",
+  "description": "100% Private In-Browser AI Platform by Niranjan Kumar K",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090D14",
+  "theme_color": "#10B981",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
