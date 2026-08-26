@@ -53,6 +53,34 @@ class AIEngine {
             return await pipelineFunc(model.task || "text-generation", model.modelId, options);
         };
 
+        const persistInstalledState = async () => {
+            if (window.dbInstance) {
+                await window.dbInstance.put("models", {
+                    id: model.id,
+                    version: model.version,
+                    status: "INSTALLED",
+                    installedAt: Date.now(),
+                    totalSize: model.sizeBytes,
+                    downloadedSize: model.sizeBytes,
+                    runtime: model.runtime,
+                    lastUsedAt: Date.now()
+                }).catch(() => {});
+
+                await window.dbInstance.put("downloads", {
+                    id: model.id,
+                    modelId: model.id,
+                    modelName: model.name,
+                    status: "INSTALLED",
+                    downloadedBytes: model.sizeBytes,
+                    totalBytes: model.sizeBytes,
+                    updatedAt: Date.now()
+                }).catch(() => {});
+            }
+            if (window.uiManager) {
+                window.uiManager.updateSystemStatus();
+            }
+        };
+
         try {
             console.log(`[AI Engine] Loading ${model.name} on ${this.device}...`);
             if (window.uiManager) {
@@ -60,6 +88,7 @@ class AIEngine {
             }
             this.activePipeline = await attemptLoad(this.device, targetDtype);
             this.activeModel = model;
+            await persistInstalledState();
             return { ok: true, device: this.device, model };
         } catch (err1) {
             console.warn(`[AI Engine] ${this.device} load failed (${err1.message}). Falling back to WASM...`);
@@ -70,6 +99,7 @@ class AIEngine {
                 this.device = "wasm";
                 this.activePipeline = await attemptLoad("wasm", targetDtype);
                 this.activeModel = model;
+                await persistInstalledState();
                 return { ok: true, device: "wasm", model };
             } catch (err2) {
                 console.error(`[AI Engine] WASM fallback failed for ${model.name}:`, err2);

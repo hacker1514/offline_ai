@@ -16,7 +16,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.uiManager.switchView("chat");
 
     window.addEventListener("online", () => {
-        window.uiManager.showToast("Network reconnected. Resuming downloads...", "info");
         window.uiManager.updateSystemStatus();
         window.downloadManager.resumeInterruptedDownloads();
     });
