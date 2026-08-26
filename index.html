@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>LWM</title>
+    
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/tokyo-night-dark.min.css">
+    
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="dark-theme">
+    <div id="app" class="app-layout">
+        
+        <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button class="icon-btn sidebar-toggle" id="btn-sidebar-toggle" title="Close Sidebar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                </button>
+                <button class="btn-new-chat" id="btn-new-chat" title="New Chat">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>New chat</span>
+                </button>
+            </div>
+
+            <div class="sidebar-scroll">
+                <nav class="sidebar-nav">
+                    <a href="#chat" class="nav-item active" data-view="chat">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        <span>Chat</span>
+                    </a>
+                    <a href="#store" class="nav-item" data-view="store">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <span>Model Store</span>
+                    </a>
+                    <a href="#installed" class="nav-item" data-view="installed">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span>Installed Models</span>
+                    </a>
+                    <a href="#storage" class="nav-item" data-view="storage">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M21 19c0 1.66-4 3-9 3s-9-1.34-9-3"></path></svg>
+                        <span>Storage & Quota</span>
+                    </a>
+                    <button class="nav-item-btn" id="btn-open-report" title="Report Issue & Contact Creator">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                        <span>Report Problem & Contact</span>
+                    </button>
+                </nav>
+
+                <div class="history-section">
+                    <div class="history-label">Recent Chats</div>
+                    <div class="history-list" id="recent-conversations-list">
+                        <div class="empty-history">No past conversations</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="user-profile-btn" id="btn-open-diagnostics">
+                    <div class="profile-avatar">AI</div>
+                    <div class="profile-info">
+                        <span class="profile-name">LWM</span>
+                        <span class="profile-status" id="sidebar-status-text">Online • Local</span>
+                    </div>
+                </button>
+            </div>
+        </aside>
+
+        <main class="main-workspace">
+            
+            <header class="top-header">
+                <div class="header-left">
+                    <button class="icon-btn sidebar-open-btn" id="btn-sidebar-open" title="Open Sidebar">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                    </button>
+
+                    <img src="assets/logo.svg" alt="LWM Logo" class="header-logo grayscale-logo">
+                    
+                    <div class="custom-model-selector-wrapper">
+                        <button class="custom-model-trigger" id="custom-model-trigger-btn">
+                            <span class="trigger-sparkle">✦</span>
+                            <span class="trigger-model-title" id="trigger-selected-model-name">No Model Installed</span>
+                            <svg class="trigger-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
+
+                        <div class="custom-model-dropdown-menu hidden" id="custom-model-dropdown-menu">
+                            <div class="dropdown-menu-header">Select LWM Model</div>
+                            <div class="dropdown-menu-list" id="custom-model-options-list"></div>
+                            <div class="dropdown-menu-footer" id="btn-dropdown-open-store">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                <span>Download More Models in Store</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="header-right">
+                    <button class="icon-btn" id="btn-open-settings" title="Model Parameters & Settings">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    </button>
+
+                    <button class="btn-voice-mode-pill" id="btn-voice-mode-toggle" title="Start Hands-Free Voice Chat">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                        <span>Voice Mode</span>
+                    </button>
+
+                    <button class="hw-pill-btn" id="btn-system-status">
+                        <span class="hw-dot"></span>
+                        <span class="hw-text" id="system-gpu-badge">WebGPU</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="workspace-views">
+                
+                <section class="view-panel active" id="view-chat">
+                    <div class="chat-container">
+                        
+                        <div class="alert-banner hidden" id="model-missing-banner">
+                            <span id="banner-message">No AI model installed. Open the Model Store to download a model.</span>
+                            <button class="btn btn-primary btn-sm" id="btn-banner-action">Open Store</button>
+                        </div>
+
+                        <div class="chat-messages-area" id="messages-wrapper">
+                            
+                            <div class="chat-hero-screen" id="chat-welcome-hero">
+                                <img src="assets/logo.svg" alt="LWM Logo" class="hero-logo grayscale-logo">
+                                <h1 class="hero-heading">What can I help with today?</h1>
+                                <p style="color:var(--text-muted); margin-bottom:32px; font-size:14px;">Private Local AI Platform</p>
+                                
+                                <div class="hero-chips-grid" id="quick-prompts">
+                                    <button class="chip-card" data-prompt="Explain how WebGPU speeds up local AI inference in modern browsers.">
+                                        <span class="chip-title">WebGPU Architecture</span>
+                                        <span class="chip-desc">How local AI runs directly on your GPU</span>
+                                    </button>
+                                    <button class="chip-card" data-prompt="Write a modern JavaScript function for chunked HTTP file streaming.">
+                                        <span class="chip-title">Code Generator</span>
+                                        <span class="chip-desc">Generate JavaScript streaming code</span>
+                                    </button>
+                                    <button class="chip-card" data-prompt="Write a Python script to parse JSON data and aggregate summary metrics.">
+                                        <span class="chip-title">Python Data Parser</span>
+                                        <span class="chip-desc">Parse JSON & compute summary statistics</span>
+                                    </button>
+                                    <button class="chip-card" data-prompt="Compare Qwen3 vs Gemma local LLM browser performance.">
+                                        <span class="chip-title">AI Comparison</span>
+                                        <span class="chip-desc">Compare compact browser AI models</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="messages-stream" id="messages-list"></div>
+                        </div>
+
+                        <div class="floating-prompt-bar">
+                            <div class="prompt-box-wrapper">
+                                <div class="modern-prompt-card">
+                                    
+                                    <div class="prompt-text-area-wrapper">
+                                        <textarea id="chat-input" rows="1" placeholder="Message LWM..." autofocus></textarea>
+                                    </div>
+
+                                    <div class="prompt-card-bottom-bar">
+                                        <div class="prompt-left-actions">
+                                            <button class="prompt-action-icon-btn" id="btn-mic-dictation" title="Voice Input (Click to speak)">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                                            </button>
+                                            <button class="prompt-action-icon-btn" title="Add file attachment">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                                            </button>
+                                        </div>
+
+                                        <div class="prompt-right-actions">
+                                            <span class="tps-badge" id="inference-speed-counter">0 t/s</span>
+                                            
+                                            <button class="btn-send-circle disabled" id="btn-send-msg" title="Send message" disabled>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                                            </button>
+                                            
+                                            <button class="btn-stop-circle hidden" id="btn-stop-generation" title="Stop generation">
+                                                <svg width="16" height="16" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="#000000"></rect></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                            <div class="prompt-footnote">LWM runs 100% locally in your browser via WebGPU. Private & offline.</div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <section class="view-panel" id="view-store">
+                    <div class="panel-inner">
+                        <div class="panel-header-row">
+                            <div>
+                                <h2 class="panel-title">Model Store</h2>
+                                <p class="panel-subtitle">Browse browser-compatible AI models. Download model weights once, store in browser storage, and run 100% offline.</p>
+                            </div>
+                            <div class="search-input-wrapper">
+                                <input type="text" id="store-search-input" placeholder="Search models...">
+                            </div>
+                        </div>
+
+                        <div class="category-tabs" id="category-tabs">
+                            <button class="cat-tab active" data-category="all">All Models</button>
+                            <button class="cat-tab" data-category="coding">Coding</button>
+                            <button class="cat-tab" data-category="reasoning">Reasoning</button>
+                            <button class="cat-tab" data-category="general">General</button>
+                            <button class="cat-tab" data-category="small">Small & Fast</button>
+                        </div>
+
+                        <div class="models-grid" id="models-store-grid"></div>
+                    </div>
+                </section>
+
+                <section class="view-panel" id="view-installed">
+                    <div class="panel-inner">
+                        <div class="panel-header-row">
+                            <div>
+                                <h2 class="panel-title">Installed Models</h2>
+                                <p class="panel-subtitle">Manage AI models stored locally in IndexedDB & Cache Storage.</p>
+                            </div>
+                        </div>
+                        <div class="models-grid" id="installed-models-grid"></div>
+                    </div>
+                </section>
+
+                <section class="view-panel" id="view-storage">
+                    <div class="panel-inner">
+                        <div class="panel-header-row">
+                            <div>
+                                <h2 class="panel-title">Storage & Quota</h2>
+                                <p class="panel-subtitle">Inspect local disk space allocated to AI models.</p>
+                            </div>
+                            <button class="btn btn-outline" id="btn-request-persist">Enable Persistent Storage</button>
+                        </div>
+
+                        <div class="storage-summary-card">
+                            <div class="storage-metrics">
+                                <div class="metric-item">
+                                    <span class="metric-label">Used Storage</span>
+                                    <span class="metric-val" id="storage-used-val">0 MB</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Available Space</span>
+                                    <span class="metric-val" id="storage-avail-val">0 GB</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Persistence</span>
+                                    <span class="metric-val text-blue" id="storage-persist-val">Checking...</span>
+                                </div>
+                            </div>
+                            <div class="progress-bar-bg margin-top-md">
+                                <div class="progress-bar-fill" id="storage-bar-fill" style="width: 0%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="margin-top-lg">
+                            <h3>Installed Footprint</h3>
+                            <div class="table-card">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Model Name</th>
+                                            <th>Provider</th>
+                                            <th>Size</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="storage-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODEL GENERATION SETTINGS MODAL -->
+    <div class="modal-overlay hidden" id="modal-generation-settings">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Model Generation Settings</h3>
+                <button class="modal-close" data-modal="modal-generation-settings">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <div class="setting-label-row">
+                            <label for="setting-temperature">Temperature</label>
+                            <span class="setting-val-badge" id="val-temperature">0.7</span>
+                        </div>
+                        <p class="setting-desc">Controls output randomness & creativity. Higher values (0.8+) produce more creative answers, lower values (0.2) yield strict facts.</p>
+                        <input type="range" id="setting-temperature" min="0" max="1" step="0.05" value="0.7">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label-row">
+                            <label for="setting-top-p">Top-P (Nucleus Sampling)</label>
+                            <span class="setting-val-badge" id="val-top-p">0.9</span>
+                        </div>
+                        <p class="setting-desc">Considers tokens with top_p probability mass. 0.9 means considering top 90% most likely words.</p>
+                        <input type="range" id="setting-top-p" min="0.1" max="1" step="0.05" value="0.9">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label-row">
+                            <label for="setting-max-tokens">Max Tokens Limit</label>
+                            <span class="setting-val-badge" id="val-max-tokens">512</span>
+                        </div>
+                        <p class="setting-desc">Maximum number of new tokens generated per response (range: 64 to 2048).</p>
+                        <input type="range" id="setting-max-tokens" min="64" max="2048" step="64" value="512">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label-row">
+                            <label for="setting-repetition-penalty">Repetition Penalty</label>
+                            <span class="setting-val-badge" id="val-repetition-penalty">1.1</span>
+                        </div>
+                        <p class="setting-desc">Penalizes repeated words and looping sentences (1.0 = neutral, 1.2 = strict diversity).</p>
+                        <input type="range" id="setting-repetition-penalty" min="1.0" max="1.5" step="0.05" value="1.1">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label-row">
+                            <label for="setting-system-prompt">System Instruction Prompt</label>
+                        </div>
+                        <p class="setting-desc">Core directive guiding the assistant's tone, identity, and behavior.</p>
+                        <textarea id="setting-system-prompt" rows="3" class="setting-textarea" placeholder="Enter system instructions..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btn-reset-settings">Reset Defaults</button>
+                <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REPORT PROBLEM & SUPPORT MODAL -->
+    <div class="modal-overlay hidden" id="modal-report-problem">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Report Problem & Contact Developer</h3>
+                <button class="modal-close" data-modal="modal-report-problem">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <div class="setting-label-row">
+                            <label for="report-issue-subject">Issue Subject</label>
+                        </div>
+                        <p class="setting-desc">Title or topic of your issue or request.</p>
+                        <input type="text" id="report-issue-subject" class="setting-input" placeholder="e.g. Model Download issue / UI Bug" value="LWM Issue Report">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label-row">
+                            <label for="report-issue-body">Problem Description</label>
+                        </div>
+                        <p class="setting-desc">Detail what went wrong or what features you would like added.</p>
+                        <textarea id="report-issue-body" rows="4" class="setting-textarea" placeholder="Explain your feedback or issue..."></textarea>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label-row">
+                            <label>Direct Developer Channels</label>
+                        </div>
+                        <p class="setting-desc">Connect directly with Niranjan Kumar K for instant assistance.</p>
+                        <div class="report-contact-grid">
+                            <a href="https://wa.me/919515888385" target="_blank" class="contact-pill-btn whatsapp">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+                                <span>WhatsApp</span>
+                            </a>
+                            <a href="https://linkedin.com/in/hacker1514" target="_blank" class="contact-pill-btn linkedin">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                                <span>LinkedIn</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="modal-report-problem">Cancel</button>
+                <button class="btn btn-primary" id="btn-send-report-mail">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <span>Send via Gmail Web</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="voice-mode-overlay hidden" id="modal-voice-mode">
+        <div class="voice-mode-container">
+            <div class="voice-orb-wrapper">
+                <div class="voice-orb" id="voice-ai-orb">
+                    <div class="orb-ring ring-1"></div>
+                    <div class="orb-ring ring-2"></div>
+                    <div class="orb-core"></div>
+                </div>
+            </div>
+
+            <div class="voice-mode-status-area">
+                <div class="voice-status-title" id="voice-status-title">Listening...</div>
+                <div class="voice-transcript-text" id="voice-transcript-text">Tap sphere or speak to chat</div>
+            </div>
+
+            <div class="voice-mode-controls">
+                <button class="voice-control-circle-btn mic-active" id="btn-voice-orb-mic" title="Toggle Mic">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                </button>
+                <button class="voice-control-circle-btn close-red" id="btn-voice-end-session" title="End Voice Chat">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="modal-diagnostics">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>System Architecture</h3>
+                <button class="modal-close" data-modal="modal-diagnostics">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="diag-rows">
+                    <div class="diag-row"><span>Platform Name:</span> <span class="text-blue">LWM (Learn With Me)</span></div>
+                    <div class="diag-row"><span>Execution Engine:</span> <span id="diag-webgpu-status" class="text-green">WebGPU Hardware Accelerated</span></div>
+                    <div class="diag-row"><span>Multi-Threading:</span> <span id="diag-wasm-status" class="text-green">WASM SIMD Enabled</span></div>
+                    <div class="diag-row"><span>Storage Engine:</span> <span class="text-blue">IndexedDB + Cache Storage API</span></div>
+                    <div class="diag-row"><span>Active Model Loaded:</span> <span id="diag-active-model" class="text-blue">None</span></div>
+                    <div class="diag-row"><span>Privacy Status:</span> <span class="text-green">100% Offline (Zero External Servers)</span></div>
+                    <div class="diag-row"><span>Service Worker:</span> <span id="diag-sw-status">Active</span></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary modal-close" data-modal="modal-diagnostics">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="modal-remove-confirm">
+        <div class="modal-card modal-card-sm">
+            <div class="modal-header">
+                <h3 id="remove-modal-title">Remove Model?</h3>
+                <button class="modal-close" data-modal="modal-remove-confirm">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>This will delete model weights from browser storage. Chat conversations will remain intact.</p>
+                <div class="alert-box margin-top-sm">
+                    <span>Reclaiming approx. <strong id="remove-modal-size">0 MB</strong>.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="modal-remove-confirm">Cancel</button>
+                <button class="btn btn-danger" id="btn-confirm-remove-execute">Remove Model</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="modal-model-detail">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="detail-model-title">Model Specifications</h3>
+                <button class="modal-close" data-modal="modal-model-detail">&times;</button>
+            </div>
+            <div class="modal-body" id="detail-model-body"></div>
+            <div class="modal-footer" id="detail-model-footer"></div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
+        window.TransformersJS = { pipeline, env };
+        console.log('[LWM] Local Neural Engine Loaded.');
+    </script>
+
+    <script src="js/config.js"></script>
+    <script src="js/registry.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/storage-manager.js"></script>
+    <script src="js/download-manager.js"></script>
+    <script src="js/model-resolver.js"></script>
+    <script src="js/model-adapter.js"></script>
+    <script src="js/ai-engine.js"></script>
+    <script src="js/chat-controller.js"></script>
+    <script src="js/ui-manager.js"></script>
+    <script src="js/diagnostics.js"></script>
+    <script src="js/performance.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

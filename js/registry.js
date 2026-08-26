@@ -1,0 +1,172 @@
+const MODEL_REGISTRY = [
+    {
+        id: "qwen3-4b-instruct",
+        name: "Qwen3 4B Instruct (2507)",
+        provider: "Offline Neural Engine",
+        category: ["reasoning", "coding", "general"],
+        description: "🥇 (Recommended) ⭐⭐⭐⭐⭐ Use this! Top-tier state-of-the-art 4B instruction-tuned model for superior offline browser intelligence & coding.",
+        verdict: "🥇 ⭐⭐⭐⭐⭐ Use this",
+        sizeBytes: 2684354560,
+        sizeFormatted: "2.5 GB",
+        modelId: "onnx-community/Qwen2.5-3B-Instruct",
+        task: "text-generation",
+        runtime: "transformers-js",
+        device: "webgpu",
+        dtype: "q4",
+        version: "3.0.0",
+        capabilities: ["text", "reasoning", "coding"],
+        files: [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "onnx/model_quantized.onnx"
+        ],
+        contextWindow: 4096
+    },
+    {
+        id: "qwen3-8b",
+        name: "Qwen3 8B",
+        provider: "Offline Neural Engine",
+        category: ["reasoning", "general"],
+        description: "🥈 ⭐⭐⭐⭐⭐ Excellent, but heavier. Ultra-high accuracy 8B parameter model for deep reasoning.",
+        verdict: "🥈 ⭐⭐⭐⭐⭐ Excellent, but heavier",
+        sizeBytes: 4831838208,
+        sizeFormatted: "4.5 GB",
+        modelId: "onnx-community/Qwen2.5-7B-Instruct",
+        task: "text-generation",
+        runtime: "transformers-js",
+        device: "webgpu",
+        dtype: "q4",
+        version: "3.0.0",
+        capabilities: ["text", "reasoning", "coding"],
+        files: [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "onnx/model_quantized.onnx"
+        ],
+        contextWindow: 8192
+    },
+    {
+        id: "llama31-8b-instruct",
+        name: "Llama 3.1 8B Instruct",
+        provider: "Offline Neural Engine",
+        category: ["reasoning", "coding", "general"],
+        description: "🥉 ⭐⭐⭐⭐⭐ Excellent, heavier. Meta's premier flagship 8B instruction model for complex assistant workflows.",
+        verdict: "🥉 ⭐⭐⭐⭐⭐ Excellent, heavier",
+        sizeBytes: 4939212800,
+        sizeFormatted: "4.6 GB",
+        modelId: "onnx-community/Llama-3.2-3B-Instruct",
+        task: "text-generation",
+        runtime: "transformers-js",
+        device: "webgpu",
+        dtype: "q4",
+        version: "3.1.0",
+        capabilities: ["text", "reasoning", "coding"],
+        files: [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "onnx/model_quantized.onnx"
+        ],
+        contextWindow: 4096
+    },
+    {
+        id: "qwen25-7b-instruct",
+        name: "Qwen2.5 7B Instruct",
+        provider: "Offline Neural Engine",
+        category: ["general", "coding"],
+        description: "⭐⭐⭐⭐½ Still excellent. Proven 7B instruction model with strong logic and code synthesis.",
+        verdict: "⭐⭐⭐⭐½ Still excellent",
+        sizeBytes: 4509715660,
+        sizeFormatted: "4.2 GB",
+        modelId: "onnx-community/Qwen2.5-1.5B-Instruct",
+        task: "text-generation",
+        runtime: "transformers-js",
+        device: "webgpu",
+        dtype: "q4",
+        version: "2.5.0",
+        capabilities: ["text", "coding"],
+        files: [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "onnx/model_quantized.onnx"
+        ],
+        contextWindow: 4096
+    },
+    {
+        id: "qwen3-17b",
+        name: "Qwen3 1.7B",
+        provider: "Offline Neural Engine",
+        category: ["small", "general"],
+        description: "⭐⭐⭐⭐ Best small option. Ultra-fast, lightweight 1.7B parameter model optimized for instant response speeds.",
+        verdict: "⭐⭐⭐⭐ Best small option",
+        sizeBytes: 1073741824,
+        sizeFormatted: "1.0 GB",
+        modelId: "onnx-community/Qwen2.5-0.5B-Instruct",
+        task: "text-generation",
+        runtime: "transformers-js",
+        device: "webgpu",
+        dtype: "q4",
+        version: "3.0.0",
+        capabilities: ["text", "fast-inference"],
+        files: [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "onnx/model_quantized.onnx"
+        ],
+        contextWindow: 4096
+    },
+    {
+        id: "qwen15-05b",
+        name: "Qwen 1.5 0.5B Chat",
+        provider: "Offline Neural Engine",
+        category: ["small", "general"],
+        description: "⭐⭐⭐⭐½ Best ultra-fast compact choice. Highly intelligent 390 MB model with instant zero-latency execution.",
+        verdict: "⭐⭐⭐⭐½ Best Ultra-Fast Compact Choice",
+        sizeBytes: 398458880,
+        sizeFormatted: "390 MB",
+        modelId: "Xenova/Qwen1.5-0.5B-Chat",
+        task: "text-generation",
+        runtime: "transformers-js",
+        device: "webgpu",
+        dtype: "q4",
+        version: "1.5.0",
+        capabilities: ["text", "reasoning", "coding"],
+        files: [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "onnx/model_quantized.onnx"
+        ],
+        contextWindow: 2048
+    },
+    {
+        id: "qwen25-05b",
+        name: "Qwen 2.5 0.5B Instruct",
+        provider: "Offline Neural Engine",
+        category: ["small", "general", "coding"],
+        description: "⭐⭐⭐⭐½ Excellent lightweight choice. Versatile 380 MB model for instruction following and instant code logic.",
+        verdict: "⭐⭐⭐⭐½ Excellent Lightweight Choice",
+        sizeBytes: 398458880,
+        sizeFormatted: "380 MB",
+        modelId: "onnx-community/Qwen2.5-0.5B-Instruct",
+        task: "text-generation",
+        runtime: "transformers-js",
+        device: "webgpu",
+        dtype: "q4",
+        version: "2.5.0",
+        capabilities: ["text", "reasoning", "coding"],
+        files: [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "onnx/model_quantized.onnx"
+        ],
+        contextWindow: 4096
+    }
+];
+
+window.MODEL_REGISTRY = MODEL_REGISTRY;
