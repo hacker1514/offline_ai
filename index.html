@@ -498,8 +498,8 @@
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
 
     <script type="module">
-        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
-        window.TransformersJS = { pipeline, env };
+        import { pipeline, env, InterruptableStoppingCriteria, StoppingCriteria } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
+        window.TransformersJS = { pipeline, env, InterruptableStoppingCriteria, StoppingCriteria };
         console.log('[LWM] Local Neural Engine Loaded.');
     </script>
 

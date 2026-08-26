@@ -10,7 +10,10 @@ class ChatController {
         this.voiceBaseText = "";
 
         this.isVoiceModeActive = false;
+        this.isVoiceProcessingOrSpeaking = false;
         this.voiceModeRecognition = null;
+        this.voiceSilenceTimer = null;
+        this.voiceCapturedText = "";
         this.synth = window.speechSynthesis;
 
         this.genSettings = {
@@ -152,6 +155,9 @@ class ChatController {
                 this.btnSendMsg.classList.remove("hidden");
                 this.btnStopGen.classList.add("hidden");
                 this.updateSendButtonState();
+                if (window.uiManager && typeof window.uiManager.showToast === "function") {
+                    window.uiManager.showToast("Stopped AI generation.", "info");
+                }
             });
         }
 
@@ -285,7 +291,12 @@ class ChatController {
         };
 
         this.recognition.onerror = (e) => {
-            if (e.error !== 'no-speech') {
+            if (e.error === 'network' || !navigator.onLine) {
+                this.stopVoiceRecognition();
+                if (window.uiManager) {
+                    window.uiManager.showToast("Speech recognition requires an active internet connection. Connect online or type manually.", "warning");
+                }
+            } else if (e.error !== 'no-speech') {
                 this.stopVoiceRecognition();
                 if (window.uiManager) {
                     window.uiManager.showToast(`Voice mic notice: ${e.error}`, "warning");
@@ -299,6 +310,12 @@ class ChatController {
 
         if (this.btnMicDictation) {
             this.btnMicDictation.addEventListener("click", () => {
+                if (!navigator.onLine) {
+                    if (window.uiManager) {
+                        window.uiManager.showToast("Microphone speech recognition requires an active internet connection. Please connect online or type manually.", "warning");
+                    }
+                    return;
+                }
                 if (this.isRecording) {
                     if (this.recognition) this.recognition.stop();
                     this.stopVoiceRecognition();
@@ -321,8 +338,8 @@ class ChatController {
     /* REAL-TIME VOICE-TO-VOICE AI CHAT MODE */
     initVoiceMode() {
         if (this.btnVoiceModeToggle) {
-            this.btnVoiceModeToggle.addEventListener("click", () => {
-                this.openVoiceMode();
+            this.btnVoiceModeToggle.addEventListener("click", async () => {
+                await this.openVoiceMode();
             });
         }
 
@@ -331,25 +348,79 @@ class ChatController {
                 this.closeVoiceMode();
             });
         }
+
+        window.addEventListener("offline", () => {
+            if (this.isVoiceModeActive) {
+                this.setVoiceOrbState("", "Offline Mode", "Speech recognition requires an internet connection.");
+                if (window.uiManager) {
+                    window.uiManager.showToast("Speech recognition requires an active internet connection.", "warning");
+                }
+            }
+        });
     }
 
-    openVoiceMode() {
+    async openVoiceMode() {
         if (!this.selectedModelId) {
             if (window.uiManager) window.uiManager.showToast("Please install and select an AI model first.", "warning");
             return;
         }
 
+        if (!this.currentConversationId) {
+            const conversations = await window.dbInstance.getAll("conversations");
+            if (conversations && conversations.length > 0) {
+                conversations.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+                await this.switchConversation(conversations[0].id);
+            } else {
+                await this.createNewConversation();
+            }
+        } else {
+            const allMsgs = await window.dbInstance.getAll("messages");
+            this.messages = allMsgs.filter(m => m.conversationId === this.currentConversationId);
+            this.messages.sort((a, b) => a.timestamp - b.timestamp);
+        }
+
         this.isVoiceModeActive = true;
-        this.modalVoiceMode.classList.remove("hidden");
+        this.isVoiceProcessingOrSpeaking = false;
+        this.voiceCapturedText = "";
+        if (this.voiceSilenceTimer) clearTimeout(this.voiceSilenceTimer);
+
+        if (this.modalVoiceMode) this.modalVoiceMode.classList.remove("hidden");
+
+        if (!navigator.onLine) {
+            if (window.uiManager) {
+                window.uiManager.showToast("Voice Mode speech recognition requires an active internet connection.", "warning");
+            }
+            this.setVoiceOrbState("", "Internet Required", "Speech recognition requires an internet connection.");
+            return;
+        }
+
+        if (window.aiEngine.isGenerating) {
+            this.isVoiceProcessingOrSpeaking = true;
+            const lastMsg = this.messages[this.messages.length - 1];
+            const detailText = lastMsg ? `"${lastMsg.content.substring(0, 80)}..."` : "Thinking...";
+            this.setVoiceOrbState("thinking", "Thinking...", detailText);
+            return;
+        }
+
+        const lastMsg = this.messages[this.messages.length - 1];
+        if (lastMsg && lastMsg.role === "assistant" && lastMsg.content) {
+            this.setVoiceOrbState("listening", "Listening...", `Last response: "${lastMsg.content.substring(0, 60)}..."`);
+        }
+
         this.startVoiceModeListening();
     }
 
     closeVoiceMode() {
         this.isVoiceModeActive = false;
+        this.isVoiceProcessingOrSpeaking = false;
+        this.voiceCapturedText = "";
+        if (this.voiceSilenceTimer) clearTimeout(this.voiceSilenceTimer);
+
         if (this.modalVoiceMode) this.modalVoiceMode.classList.add("hidden");
         if (this.synth) this.synth.cancel();
         if (this.voiceModeRecognition) {
             try { this.voiceModeRecognition.stop(); } catch(e){}
+            this.voiceModeRecognition = null;
         }
     }
 
@@ -362,6 +433,15 @@ class ChatController {
 
     startVoiceModeListening() {
         if (!this.isVoiceModeActive) return;
+        if (this.isVoiceProcessingOrSpeaking) return;
+
+        if (!navigator.onLine) {
+            this.setVoiceOrbState("", "Internet Required", "Speech recognition requires an internet connection. Connect online or type in chat.");
+            if (window.uiManager) {
+                window.uiManager.showToast("Voice Mode speech recognition requires an active internet connection.", "warning");
+            }
+            return;
+        }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
@@ -371,27 +451,76 @@ class ChatController {
 
         this.setVoiceOrbState("listening", "Listening...", "Speak your prompt naturally");
 
-        this.voiceModeRecognition = new SpeechRecognition();
-        this.voiceModeRecognition.continuous = false;
-        this.voiceModeRecognition.interimResults = true;
-        this.voiceModeRecognition.lang = 'en-US';
+        if (!this.voiceModeRecognition) {
+            this.voiceModeRecognition = new SpeechRecognition();
+            this.voiceModeRecognition.continuous = true;
+            this.voiceModeRecognition.interimResults = true;
+            this.voiceModeRecognition.lang = 'en-US';
+        }
 
-        let capturedText = "";
+        let interimText = "";
 
         this.voiceModeRecognition.onresult = (e) => {
-            capturedText = Array.from(e.results).map(r => r[0].transcript).join("");
-            if (this.voiceTranscriptText) this.voiceTranscriptText.textContent = `"${capturedText}"`;
+            if (this.isVoiceProcessingOrSpeaking) return;
+
+            interimText = "";
+            let finalPart = "";
+            for (let i = e.resultIndex; i < e.results.length; ++i) {
+                if (e.results[i].isFinal) {
+                    finalPart += e.results[i][0].transcript + " ";
+                } else {
+                    interimText += e.results[i][0].transcript;
+                }
+            }
+
+            if (finalPart) {
+                this.voiceCapturedText += finalPart;
+            }
+
+            const currentTranscript = (this.voiceCapturedText + interimText).trim();
+            if (this.voiceTranscriptText) {
+                this.voiceTranscriptText.textContent = currentTranscript ? `"${currentTranscript}"` : "Speak your prompt naturally";
+            }
+
+            if (this.voiceSilenceTimer) clearTimeout(this.voiceSilenceTimer);
+
+            if (currentTranscript.length > 0) {
+                this.voiceSilenceTimer = setTimeout(() => {
+                    if (this.isVoiceModeActive && !this.isVoiceProcessingOrSpeaking) {
+                        const submissionText = (this.voiceCapturedText + interimText).trim();
+                        if (submissionText.length > 0) {
+                            this.voiceCapturedText = "";
+                            interimText = "";
+                            this.processVoiceModeTurn(submissionText);
+                        }
+                    }
+                }, 1500);
+            }
         };
 
-        this.voiceModeRecognition.onend = async () => {
-            if (!this.isVoiceModeActive) return;
-            if (capturedText.trim().length > 0) {
-                await this.processVoiceModeTurn(capturedText.trim());
-            } else {
-                setTimeout(() => {
-                    if (this.isVoiceModeActive) this.startVoiceModeListening();
-                }, 500);
+        this.voiceModeRecognition.onerror = (e) => {
+            if (e.error === 'network' || !navigator.onLine) {
+                this.setVoiceOrbState("", "Offline Mode", "Speech recognition requires an internet connection.");
+                if (window.uiManager) {
+                    window.uiManager.showToast("Speech recognition requires an active internet connection.", "warning");
+                }
             }
+        };
+
+        this.voiceModeRecognition.onend = () => {
+            if (!this.isVoiceModeActive) return;
+            if (this.isVoiceProcessingOrSpeaking) return;
+
+            if (!navigator.onLine) {
+                this.setVoiceOrbState("", "Offline Mode", "Speech recognition requires an internet connection.");
+                return;
+            }
+
+            setTimeout(() => {
+                if (this.isVoiceModeActive && !this.isVoiceProcessingOrSpeaking) {
+                    try { this.voiceModeRecognition.start(); } catch(e) {}
+                }
+            }, 300);
         };
 
         try {
@@ -401,6 +530,26 @@ class ChatController {
 
     async processVoiceModeTurn(userSpeech) {
         if (!this.isVoiceModeActive) return;
+
+        if (!this.currentConversationId) {
+            await this.createNewConversation();
+        }
+
+        this.isVoiceProcessingOrSpeaking = true;
+        if (this.voiceSilenceTimer) clearTimeout(this.voiceSilenceTimer);
+        if (this.voiceModeRecognition) {
+            try { this.voiceModeRecognition.stop(); } catch(e){}
+        }
+
+        if (this.messages.length === 0 && this.currentConversationId) {
+            const conv = await window.dbInstance.get("conversations", this.currentConversationId);
+            if (conv) {
+                conv.title = userSpeech.substring(0, 24) + (userSpeech.length > 24 ? "..." : "");
+                conv.updatedAt = Date.now();
+                await window.dbInstance.put("conversations", conv);
+                await this.loadRecentConversations();
+            }
+        }
 
         this.setVoiceOrbState("thinking", "Thinking...", `"${userSpeech}"`);
 
@@ -429,71 +578,118 @@ class ChatController {
 
         let aiFullResponse = "";
 
-        await window.aiEngine.generateResponse(
-            this.messages.filter(m => m.role !== "assistant" || m.content.length > 0),
-            this.systemPrompt,
-            (tokenData) => {
-                aiFullResponse = tokenData.fullText;
-                assistantMsg.content = tokenData.fullText;
-                if (this.voiceTranscriptText) this.voiceTranscriptText.textContent = tokenData.fullText.substring(0, 80) + "...";
-            },
-            async (finalData) => {
-                if (finalData.stopped) {
-                    if (!assistantMsg.content) {
-                        this.messages = this.messages.filter(m => m.id !== assistantMsg.id);
-                        await window.dbInstance.delete("messages", assistantMsg.id);
+        try {
+            await window.aiEngine.generateResponse(
+                this.messages.filter(m => m.role !== "assistant" || m.content.length > 0),
+                this.systemPrompt,
+                (tokenData) => {
+                    aiFullResponse = tokenData.fullText;
+                    assistantMsg.content = tokenData.fullText;
+                    if (this.voiceTranscriptText) this.voiceTranscriptText.textContent = tokenData.fullText.substring(0, 80) + "...";
+                },
+                async (finalData) => {
+                    if (finalData.stopped) {
+                        if (!assistantMsg.content) {
+                            this.messages = this.messages.filter(m => m.id !== assistantMsg.id);
+                            await window.dbInstance.delete("messages", assistantMsg.id);
+                        } else {
+                            await window.dbInstance.put("messages", assistantMsg);
+                        }
                     } else {
-                        await window.dbInstance.put("messages", assistantMsg);
+                        aiFullResponse = finalData.text;
+                        assistantMsg.content = finalData.text;
+                        await window.dbInstance.put("messages", finalData.assistantMsg || assistantMsg);
                     }
-                } else {
-                    aiFullResponse = finalData.text;
-                    assistantMsg.content = finalData.text;
-                    await window.dbInstance.put("messages", finalData.assistantMsg || assistantMsg);
-                }
-                this.renderMessages();
+                    this.renderMessages();
 
-                if (this.isVoiceModeActive && aiFullResponse) {
-                    this.speakVoiceModeResponse(aiFullResponse);
-                }
-            },
-            (err) => {
-                if (this.isVoiceModeActive) this.startVoiceModeListening();
-            },
-            this.genSettings
-        );
+                    if (this.currentConversationId) {
+                        const conv = await window.dbInstance.get("conversations", this.currentConversationId);
+                        if (conv) {
+                            conv.updatedAt = Date.now();
+                            await window.dbInstance.put("conversations", conv);
+                            await this.loadRecentConversations();
+                        }
+                    }
+
+                    if (this.isVoiceModeActive && aiFullResponse) {
+                        this.speakVoiceModeResponse(aiFullResponse);
+                    } else if (this.isVoiceModeActive) {
+                        this.isVoiceProcessingOrSpeaking = false;
+                        this.startVoiceModeListening();
+                    }
+                },
+                (err) => {
+                    this.isVoiceProcessingOrSpeaking = false;
+                    if (this.isVoiceModeActive) this.startVoiceModeListening();
+                },
+                this.genSettings
+            );
+        } catch(err) {
+            this.isVoiceProcessingOrSpeaking = false;
+            if (this.isVoiceModeActive) this.startVoiceModeListening();
+        }
     }
 
     speakVoiceModeResponse(text) {
-        if (!this.isVoiceModeActive) return;
+        if (!this.isVoiceModeActive) {
+            this.isVoiceProcessingOrSpeaking = false;
+            return;
+        }
+
+        this.isVoiceProcessingOrSpeaking = true;
+        if (this.voiceSilenceTimer) clearTimeout(this.voiceSilenceTimer);
+        if (this.voiceModeRecognition) {
+            try { this.voiceModeRecognition.stop(); } catch(e){}
+        }
 
         const cleanText = text.replace(/```[\s\S]*?```/g, "Code block omitted.")
                               .replace(/[#*`_~]/g, "")
+                              .replace(/\s+/g, " ")
                               .trim();
 
         if (!this.synth || !cleanText) {
-            this.startVoiceModeListening();
+            this.isVoiceProcessingOrSpeaking = false;
+            if (this.isVoiceModeActive) this.startVoiceModeListening();
             return;
         }
 
         this.synth.cancel();
         this.setVoiceOrbState("speaking", "LWM Speaking...", cleanText.substring(0, 100) + "...");
 
-        const utterance = new SpeechSynthesisUtterance(cleanText.substring(0, 300));
-        utterance.rate = 1.0;
+        const sentenceMatches = cleanText.match(/[^.!?]+[.!?]+|\S+/g);
+        const sentences = sentenceMatches && sentenceMatches.length > 0 ? sentenceMatches : [cleanText];
+        let currentIdx = 0;
 
-        utterance.onend = () => {
-            if (this.isVoiceModeActive) {
-                setTimeout(() => this.startVoiceModeListening(), 400);
+        const speakNextSentence = () => {
+            if (!this.isVoiceModeActive || currentIdx >= sentences.length) {
+                if (this.isVoiceModeActive) {
+                    setTimeout(() => {
+                        this.voiceCapturedText = "";
+                        this.isVoiceProcessingOrSpeaking = false;
+                        this.startVoiceModeListening();
+                    }, 500);
+                } else {
+                    this.isVoiceProcessingOrSpeaking = false;
+                }
+                return;
             }
+
+            const sentence = sentences[currentIdx++];
+            const utterance = new SpeechSynthesisUtterance(sentence);
+            utterance.rate = 1.0;
+
+            utterance.onend = () => {
+                speakNextSentence();
+            };
+
+            utterance.onerror = () => {
+                speakNextSentence();
+            };
+
+            this.synth.speak(utterance);
         };
 
-        utterance.onerror = () => {
-            if (this.isVoiceModeActive) {
-                this.startVoiceModeListening();
-            }
-        };
-
-        this.synth.speak(utterance);
+        speakNextSentence();
     }
 
     updateSendButtonState() {
@@ -876,19 +1072,41 @@ class ChatController {
             itemDiv.className = `message-item ${msg.role}`;
 
             const renderedContent = msg.role === "user" ? this.escapeHTML(msg.content) : this.renderMarkdown(msg.content);
-            const metaTag = msg.role === "assistant" ? `<div class="message-meta">${msg.modelId || "local"}</div>` : "";
+            const metaTag = msg.role === "assistant" ? `<span class="message-meta">${msg.modelId || "local"}</span>` : "";
+
+            const hasContent = msg.content && msg.content.length > 0;
+            const copyBtnHTML = hasContent ? `
+                <button class="btn-copy-msg" data-msg-id="${msg.id}" title="${msg.role === 'user' ? 'Copy typed message' : 'Copy response'}">
+                    <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <svg class="check-icon hidden" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span class="copy-label">Copy</span>
+                </button>
+            ` : "";
+
+            const actionsHTML = `
+                <div class="message-actions ${msg.role}-actions">
+                    ${msg.role === "assistant" ? metaTag : ""}
+                    ${copyBtnHTML}
+                </div>
+            `;
 
             itemDiv.innerHTML = `
                 <div class="message-bubble">
                     <div>${renderedContent}</div>
-                    ${metaTag}
                 </div>
+                ${actionsHTML}
             `;
 
             this.messagesList.appendChild(itemDiv);
         }
 
         this.attachCodeCopyHandlers();
+        this.attachMessageCopyHandlers();
         this.messagesWrapper.scrollTop = this.messagesWrapper.scrollHeight;
     }
 
@@ -917,7 +1135,16 @@ class ChatController {
                     header.className = "code-header";
                     header.innerHTML = `
                         <span>${lang}</span>
-                        <button class="btn-copy-code" data-code="${encodeURIComponent(codeBlock.textContent)}">Copy code</button>
+                        <button class="btn-copy-code" data-code="${encodeURIComponent(codeBlock.textContent)}">
+                            <svg class="copy-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            <svg class="check-icon hidden" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span class="copy-code-label">Copy code</span>
+                        </button>
                     `;
 
                     pre.parentNode.insertBefore(wrapper, pre);
@@ -934,13 +1161,73 @@ class ChatController {
     attachCodeCopyHandlers() {
         document.querySelectorAll(".btn-copy-code").forEach((btn) => {
             btn.onclick = (e) => {
+                e.stopPropagation();
                 const codeText = decodeURIComponent(btn.dataset.code);
-                navigator.clipboard.writeText(codeText).then(() => {
-                    btn.textContent = "Copied!";
-                    setTimeout(() => { btn.textContent = "Copy code"; }, 2000);
-                });
+                this.copyToClipboard(codeText, btn, "Copy code");
             };
         });
+    }
+
+    attachMessageCopyHandlers() {
+        document.querySelectorAll(".btn-copy-msg").forEach((btn) => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const msgId = btn.dataset.msgId;
+                const msg = this.messages.find((m) => m.id === msgId);
+                if (!msg || !msg.content) return;
+                this.copyToClipboard(msg.content, btn, "Copy");
+            };
+        });
+    }
+
+    copyToClipboard(text, btn, defaultLabel = "Copy") {
+        const doSuccess = () => {
+            btn.classList.add("copied");
+            const copyIcon = btn.querySelector(".copy-icon");
+            const checkIcon = btn.querySelector(".check-icon");
+            const labelSpan = btn.querySelector("span");
+
+            if (copyIcon) copyIcon.classList.add("hidden");
+            if (checkIcon) checkIcon.classList.remove("hidden");
+            if (labelSpan) labelSpan.textContent = "Copied!";
+
+            if (window.uiManager && typeof window.uiManager.showToast === "function") {
+                window.uiManager.showToast("Copied to clipboard", "success");
+            }
+
+            setTimeout(() => {
+                btn.classList.remove("copied");
+                if (copyIcon) copyIcon.classList.remove("hidden");
+                if (checkIcon) checkIcon.classList.add("hidden");
+                if (labelSpan) labelSpan.textContent = defaultLabel;
+            }, 2000);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(doSuccess).catch(() => {
+                this.fallbackCopyToClipboard(text, doSuccess);
+            });
+        } else {
+            this.fallbackCopyToClipboard(text, doSuccess);
+        }
+    }
+
+    fallbackCopyToClipboard(text, doSuccess) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand("copy");
+            doSuccess();
+        } catch (err) {
+            console.error("Failed to copy text", err);
+        }
+        document.body.removeChild(textArea);
     }
 
     showMissingModelBanner(message) {

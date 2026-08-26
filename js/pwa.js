@@ -58,6 +58,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("sw.js").then((reg) => {
             console.log("[LWM] Service Worker registered successfully for offline support.", reg);
+            reg.update();
         }).catch((err) => {
             console.warn("[LWM] Service Worker registration failed:", err);
         });

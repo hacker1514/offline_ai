@@ -1,3 +1,21 @@
+class CustomInterruptableStoppingCriteria {
+    constructor() {
+        this.interrupted = false;
+    }
+    interrupt() {
+        this.interrupted = true;
+    }
+    reset() {
+        this.interrupted = false;
+    }
+    _call(input_ids, scores) {
+        return this.interrupted;
+    }
+    call(input_ids, scores) {
+        return this.interrupted;
+    }
+}
+
 class AIEngine {
     constructor() {
         this.activePipeline = null;
@@ -185,10 +203,15 @@ class AIEngine {
         let tokenCount = 0;
         const startTime = Date.now();
 
-        const InterruptableStoppingCriteria = window.TransformersJS ? window.TransformersJS.InterruptableStoppingCriteria : null;
-        if (InterruptableStoppingCriteria) {
-            this.stoppingCriteria = new InterruptableStoppingCriteria();
+        const InterruptableClass = (window.TransformersJS && window.TransformersJS.InterruptableStoppingCriteria)
+            ? window.TransformersJS.InterruptableStoppingCriteria
+            : CustomInterruptableStoppingCriteria;
+
+        this.stoppingCriteria = new InterruptableClass();
+        if (typeof this.stoppingCriteria.reset === "function") {
+            this.stoppingCriteria.reset();
         }
+        this.stoppingCriteria.interrupted = false;
 
         const temp = customParams.temperature !== undefined ? parseFloat(customParams.temperature) : 0.7;
         const topP = customParams.top_p !== undefined ? parseFloat(customParams.top_p) : 0.9;
@@ -207,7 +230,10 @@ class AIEngine {
                 callback_function: (output) => {
                     if (this.abortRequested) {
                         if (this.stoppingCriteria) {
-                            try { this.stoppingCriteria.interrupt(); } catch (e) {}
+                            if (typeof this.stoppingCriteria.interrupt === "function") {
+                                try { this.stoppingCriteria.interrupt(); } catch (e) {}
+                            }
+                            this.stoppingCriteria.interrupted = true;
                         }
                         return;
                     }
@@ -234,8 +260,14 @@ class AIEngine {
             this.isGenerating = false;
 
             if (this.abortRequested) {
+                const partialText = this.sanitizeOutput(result, formattedPrompt);
                 if (onComplete) {
-                    onComplete({ text: "", tokenCount: 0, tps: "0", stopped: true });
+                    onComplete({
+                        text: partialText || "",
+                        tokenCount: tokenCount || 0,
+                        tps: "0",
+                        stopped: true
+                    });
                 }
                 return;
             }
@@ -257,7 +289,7 @@ class AIEngine {
             this.isGenerating = false;
             if (this.abortRequested) {
                 if (onComplete) {
-                    onComplete({ text: "", tokenCount: 0, tps: "0", stopped: true });
+                    onComplete({ text: "", tokenCount: tokenCount || 0, tps: "0", stopped: true });
                 }
             } else {
                 if (onError) onError(err);
@@ -269,9 +301,12 @@ class AIEngine {
         this.abortRequested = true;
         this.isGenerating = false;
         if (this.stoppingCriteria) {
-            try {
-                this.stoppingCriteria.interrupt();
-            } catch (e) {}
+            if (typeof this.stoppingCriteria.interrupt === "function") {
+                try {
+                    this.stoppingCriteria.interrupt();
+                } catch (e) {}
+            }
+            this.stoppingCriteria.interrupted = true;
         }
     }
 }
