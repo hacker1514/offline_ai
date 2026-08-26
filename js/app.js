@@ -3,17 +3,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const reg = await navigator.serviceWorker.register("sw.js");
             reg.update();
-
-            reg.onupdatefound = () => {
-                const installingWorker = reg.installing;
-                if (installingWorker) {
-                    installingWorker.onstatechange = () => {
-                        if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
-                            window.location.reload();
-                        }
-                    };
-                }
-            };
         } catch (err) {}
     }
 
@@ -27,8 +16,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.uiManager.switchView("chat");
 
     window.addEventListener("online", () => {
-        window.uiManager.showToast("Network connected. Downloads available.", "info");
+        window.uiManager.showToast("Network reconnected. Resuming downloads...", "info");
         window.uiManager.updateSystemStatus();
+        window.downloadManager.resumeInterruptedDownloads();
     });
 
     window.addEventListener("offline", () => {

@@ -33,30 +33,48 @@ class AIEngine {
             throw new Error("Transformers.js engine bundle is not loaded.");
         }
 
-        window.modelResolver.setupTransformersEnv();
+        const status = await window.modelResolver.resolveStatus(model.id);
+        const isInstalled = status === "INSTALLED";
 
-        try {
-            const pipelineFunc = window.TransformersJS.pipeline;
+        window.modelResolver.setupTransformersEnv(isInstalled);
 
+        const pipelineFunc = window.TransformersJS.pipeline;
+        const targetDtype = model.dtype || "q4";
+
+        const attemptLoad = async (deviceType, dtypeVal) => {
             const options = {
-                device: this.device,
-                dtype: model.dtype || "q4",
+                device: deviceType,
+                dtype: dtypeVal,
+                local_files_only: isInstalled,
                 progress_callback: (progressInfo) => {
                     if (onProgress) onProgress(progressInfo);
                 }
             };
+            return await pipelineFunc(model.task || "text-generation", model.modelId, options);
+        };
 
-            this.activePipeline = await pipelineFunc(model.task || "text-generation", model.modelId, options);
-            this.activeModel = model;
-
-            return { ok: true, device: this.device, model };
-        } catch (err) {
-            console.warn(`[AI Engine] Primary load failed on ${this.device}: ${err.message}. Fallback to WASM...`);
-            if (this.device === "webgpu") {
-                this.device = "wasm";
-                return this.loadModel(model, onProgress);
+        try {
+            console.log(`[AI Engine] Loading ${model.name} on ${this.device}...`);
+            if (window.uiManager) {
+                window.uiManager.showToast("Loading model...", "info");
             }
-            throw err;
+            this.activePipeline = await attemptLoad(this.device, targetDtype);
+            this.activeModel = model;
+            return { ok: true, device: this.device, model };
+        } catch (err1) {
+            console.warn(`[AI Engine] ${this.device} load failed (${err1.message}). Falling back to WASM...`);
+            if (window.uiManager) {
+                window.uiManager.showToast("Loading model on CPU...", "warning");
+            }
+            try {
+                this.device = "wasm";
+                this.activePipeline = await attemptLoad("wasm", targetDtype);
+                this.activeModel = model;
+                return { ok: true, device: "wasm", model };
+            } catch (err2) {
+                console.error(`[AI Engine] WASM fallback failed for ${model.name}:`, err2);
+                throw new Error(`Could not load model: ${err2.message || err1.message}`);
+            }
         }
     }
 

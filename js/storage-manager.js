@@ -56,8 +56,13 @@ class StorageManager {
             let syncedCount = 0;
 
             for (const model of window.MODEL_REGISTRY) {
-                const isCached = allUrls.some(url => url.includes(model.modelId) || url.includes(model.id));
-                if (isCached) {
+                // Strict validation: Must confirm actual ONNX neural weight file is present in cache!
+                const hasOnnxWeight = allUrls.some(url =>
+                    (url.includes(model.modelId) || url.includes(model.id)) &&
+                    (url.includes(".onnx") || url.includes("model_quantized") || url.includes("model_q4"))
+                );
+
+                if (hasOnnxWeight) {
                     await window.dbInstance.put("models", {
                         id: model.id,
                         version: model.version,
@@ -69,6 +74,15 @@ class StorageManager {
                         lastUsedAt: Date.now()
                     });
                     syncedCount++;
+                } else {
+                    // Reset status to NOT_INSTALLED if ONNX model weights were not fully fetched
+                    const dbRecord = await window.dbInstance.get("models", model.id);
+                    if (dbRecord && dbRecord.status === "INSTALLED") {
+                        await window.dbInstance.put("models", {
+                            id: model.id,
+                            status: "NOT_INSTALLED"
+                        });
+                    }
                 }
             }
 

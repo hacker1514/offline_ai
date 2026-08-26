@@ -529,8 +529,8 @@ class ChatController {
     }
 
     async init() {
-        await this.populateInstalledModelsDropdown();
-        
+        await window.dbInstance.init();
+
         const conversations = await window.dbInstance.getAll("conversations");
         conversations.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
@@ -539,7 +539,11 @@ class ChatController {
         } else {
             await this.createNewConversation();
         }
+
+        await this.loadRecentConversations();
         this.updateSendButtonState();
+
+        this.populateInstalledModelsDropdown().catch(() => {});
     }
 
     async loadRecentConversations() {
@@ -692,9 +696,9 @@ class ChatController {
             this.selectedModelId = modelId;
             this.triggerSelectedModelName.textContent = targetModel.name;
 
-            window.uiManager.showToast(`Loading model ${targetModel.name}...`, "info");
+            window.uiManager.showToast("Loading model...", "info");
             await window.aiEngine.loadModel(targetModel);
-            window.uiManager.showToast(`Active model: ${targetModel.name} Ready`, "success");
+            window.uiManager.showToast("Model ready", "success");
 
             if (this.currentConversationId) {
                 const conv = await window.dbInstance.get("conversations", this.currentConversationId);

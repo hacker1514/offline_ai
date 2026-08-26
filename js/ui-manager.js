@@ -158,13 +158,23 @@ class UIManager {
             });
         }
 
-        document.querySelectorAll(".modal-close").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const modalId = btn.dataset.modal;
+        document.addEventListener("click", (e) => {
+            const closeBtn = e.target.closest(".modal-close");
+            if (closeBtn) {
+                const modalId = closeBtn.dataset.modal;
                 if (modalId) {
-                    document.getElementById(modalId).classList.add("hidden");
+                    const targetModal = document.getElementById(modalId);
+                    if (targetModal) targetModal.classList.add("hidden");
+                } else {
+                    const parentModal = closeBtn.closest(".modal-overlay");
+                    if (parentModal) parentModal.classList.add("hidden");
                 }
-            });
+                return;
+            }
+
+            if (e.target.classList.contains("modal-overlay")) {
+                e.target.classList.add("hidden");
+            }
         });
 
         if (this.btnRequestPersist) {
@@ -269,6 +279,11 @@ class UIManager {
             } else if (status === "DOWNLOADING") {
                 actionButtonHtml = `
                     <button class="btn btn-outline btn-cancel-download" data-id="${model.id}">Downloading... ✖</button>
+                `;
+            } else if (status === "INTERRUPTED" || status === "ERROR") {
+                actionButtonHtml = `
+                    <button class="btn btn-primary btn-download-model" data-id="${model.id}">Resume Download (${model.sizeFormatted})</button>
+                    <button class="btn btn-danger btn-remove-model" data-id="${model.id}">Clean</button>
                 `;
             } else if (status === "QUEUED") {
                 actionButtonHtml = `
@@ -530,13 +545,19 @@ class UIManager {
 
         if (footer) {
             footer.innerHTML = `
-                <button class="btn btn-outline modal-close" data-modal="modal-model-detail">Close</button>
+                <button class="btn btn-outline modal-close btn-close-detail" data-modal="modal-model-detail">Close</button>
                 <button class="btn btn-primary btn-detail-download">Download (${model.sizeFormatted})</button>
             `;
+            const btnClose = footer.querySelector(".btn-close-detail");
+            if (btnClose) {
+                btnClose.onclick = () => {
+                    if (this.modalModelDetail) this.modalModelDetail.classList.add("hidden");
+                };
+            }
             const btnDl = footer.querySelector(".btn-detail-download");
             if (btnDl) {
                 btnDl.onclick = () => {
-                    this.modalModelDetail.classList.add("hidden");
+                    if (this.modalModelDetail) this.modalModelDetail.classList.add("hidden");
                     window.downloadManager.startDownload(model).catch(err => this.showToast(err.message, "error"));
                 };
             }

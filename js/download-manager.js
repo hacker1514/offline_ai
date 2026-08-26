@@ -27,8 +27,12 @@ class DownloadManager {
 
         const existingModelRecord = await window.dbInstance.get("models", model.id);
         if (existingModelRecord && existingModelRecord.status === "INSTALLED") {
-            this.notifyListeners("STATE_CHANGED", { modelId: model.id, status: "INSTALLED" });
-            return;
+            const isCached = await window.storageManager.syncInstalledModelsFromCache();
+            const recheckRecord = await window.dbInstance.get("models", model.id);
+            if (recheckRecord && recheckRecord.status === "INSTALLED") {
+                this.notifyListeners("STATE_CHANGED", { modelId: model.id, status: "INSTALLED" });
+                return;
+            }
         }
 
         const preflight = await window.storageManager.preflightCheck(model.sizeBytes);
@@ -79,7 +83,7 @@ class DownloadManager {
         let lastTime = Date.now();
 
         try {
-            window.modelResolver.setupTransformersEnv();
+            window.modelResolver.setupTransformersEnv(false);
 
             if (!window.TransformersJS || !window.TransformersJS.pipeline) {
                 throw new Error("Transformers.js engine bundle is not loaded.");
@@ -91,7 +95,7 @@ class DownloadManager {
                 device: window.aiEngine.device || "wasm",
                 dtype: model.dtype || "q4",
                 progress_callback: (info) => {
-                    if (info.status === "progress") {
+                    if (info.status === "progress" || info.status === "download" || info.status === "downloading" || info.progress !== undefined) {
                         const now = Date.now();
                         const timeDiff = (now - lastTime) / 1000;
                         const loaded = info.loaded || 0;
@@ -135,47 +139,60 @@ class DownloadManager {
                 }
             });
 
-            window.aiEngine.activePipeline = pipe;
-            window.aiEngine.activeModel = model;
+            // Perform strict verification before marking as INSTALLED
+            await window.storageManager.syncInstalledModelsFromCache();
+            const verifiedRecord = await window.dbInstance.get("models", model.id);
 
+            if (verifiedRecord && verifiedRecord.status === "INSTALLED") {
+                window.aiEngine.activePipeline = pipe;
+                window.aiEngine.activeModel = model;
+
+                await window.dbInstance.put("downloads", {
+                    id: model.id,
+                    modelId: model.id,
+                    modelName: model.name,
+                    status: "INSTALLED",
+                    downloadedBytes: model.sizeBytes,
+                    totalBytes: model.sizeBytes,
+                    updatedAt: Date.now()
+                });
+
+                this.notifyListeners("STATE_CHANGED", { modelId: model.id, status: "INSTALLED" });
+                window.uiManager.showToast("Model ready", "success");
+            } else {
+                throw new Error("Model download interrupted or incomplete.");
+            }
+
+        } catch (err) {
+            console.warn(`[Download Manager] Download interrupted for ${model.name}: ${err.message}`);
             await window.dbInstance.put("downloads", {
                 id: model.id,
                 modelId: model.id,
                 modelName: model.name,
-                status: "INSTALLED",
-                downloadedBytes: model.sizeBytes,
-                totalBytes: model.sizeBytes,
-                updatedAt: Date.now()
-            });
-
-            await window.dbInstance.put("models", {
-                id: model.id,
-                version: model.version,
-                status: "INSTALLED",
-                installedAt: Date.now(),
-                totalSize: model.sizeBytes,
-                downloadedSize: model.sizeBytes,
-                runtime: model.runtime,
-                lastUsedAt: Date.now()
-            });
-
-            this.notifyListeners("STATE_CHANGED", { modelId: model.id, status: "INSTALLED" });
-            window.uiManager.showToast(`Model ${model.name} downloaded & ready offline!`, "success");
-
-        } catch (err) {
-            await window.dbInstance.put("downloads", {
-                id: model.id,
-                modelId: model.id,
-                status: "ERROR",
+                status: "INTERRUPTED",
                 error: err.message,
                 updatedAt: Date.now()
             });
             await window.dbInstance.put("models", {
                 id: model.id,
-                status: "ERROR"
+                status: "INTERRUPTED"
             });
-            this.notifyListeners("STATE_CHANGED", { modelId: model.id, status: "ERROR", error: err.message });
-            window.uiManager.showToast(`Failed to download ${model.name}: ${err.message}`, "error");
+            this.notifyListeners("STATE_CHANGED", { modelId: model.id, status: "INTERRUPTED", error: err.message });
+            window.uiManager.showToast(`Network interrupted. Click Resume to continue ${model.name}.`, "warning");
+        }
+    }
+
+    async resumeInterruptedDownloads() {
+        await window.dbInstance.init();
+        const allDownloads = await window.dbInstance.getAll("downloads");
+        for (const dl of allDownloads) {
+            if (dl.status === "DOWNLOADING" || dl.status === "ERROR" || dl.status === "INTERRUPTED") {
+                const registryModel = window.MODEL_REGISTRY.find(m => m.id === dl.modelId);
+                if (registryModel) {
+                    window.uiManager.showToast(`Resuming download for ${registryModel.name}...`, "info");
+                    this.startDownload(registryModel).catch(() => {});
+                }
+            }
         }
     }
 

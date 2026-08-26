@@ -3,14 +3,14 @@ class ModelResolver {
         this.cacheName = window.KNI_CONFIG.MODEL_CACHE_NAME;
     }
 
-    setupTransformersEnv() {
+    setupTransformersEnv(isInstalled = false) {
         if (window.TransformersJS && window.TransformersJS.env) {
             const env = window.TransformersJS.env;
 
-            env.allowLocalModels = false;
-            env.allowRemoteModels = true;
+            env.allowLocalModels = true;
+            env.allowRemoteModels = !isInstalled; // If installed, strictly disable remote network checks!
             env.useBrowserCache = true;
-            env.useCustomCache = true;
+            env.useCustomCache = false;
 
             if (env.backends && env.backends.onnx) {
                 env.backends.onnx.wasm.numThreads = 4;
