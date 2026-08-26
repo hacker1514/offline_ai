@@ -56,7 +56,11 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // Register service worker
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("sw.js").catch(() => {});
+        navigator.serviceWorker.register("sw.js").then((reg) => {
+            console.log("[LWM] Service Worker registered successfully for offline support.", reg);
+        }).catch((err) => {
+            console.warn("[LWM] Service Worker registration failed:", err);
+        });
     }
 
     // Also check getInstalledRelatedApps if supported
