@@ -1,7 +1,8 @@
-const CACHE_NAME = "lwm-shell-v10";
+const CACHE_NAME = "lwm-shell-v11";
 const STATIC_ASSETS = [
     "./",
     "./index.html",
+    "./manifest.json",
     "./css/styles.css",
     "./js/config.js",
     "./js/registry.js",
